@@ -4,6 +4,9 @@ import soundfile as sf
 import numpy as np
 import time
 import sys
+import torch
+import librosa
+from .whisper.audio import N_SAMPLES, log_mel_spectrogram, pad_or_trim
 sys.path.append("..")
 
 class Audio2Feature():
@@ -108,6 +111,67 @@ class Audio2Feature():
             embed_list.append(encoder_embeddings[:emb_end_idx])
         concatenated_array = np.concatenate(embed_list, axis=0)
         return concatenated_array
+
+    def audio_chunk2feat(self, audio_chunk: np.ndarray, sr: int = 32000, channels: int = 1):
+        """
+        Process audio chunks directly to get features using Whisper model's encoder
+        
+        Parameters
+        ----------
+        audio_chunk : np.ndarray
+            The audio chunk data from TTS output:
+            - 16-bit PCM: int16 array with values in [-32768, 32767]
+        sr : int
+            Sample rate of the audio chunk (default: 32000 Hz for TTS output)
+        channels : int
+            Number of audio channels (default: 1 for mono TTS output)
+            
+        Returns
+        -------
+        np.ndarray
+            The extracted features from the audio chunk
+        """
+        # Convert to float32 and normalize
+        if audio_chunk.dtype != np.float32:
+            audio_chunk = audio_chunk.astype(np.float32)
+            if audio_chunk.max() > 1.0 or audio_chunk.min() < -1.0:
+                audio_chunk = audio_chunk / 32768.0  # Normalize 16-bit audio
+        
+        # No need to convert channels since input is already mono
+        
+        # Resample from 32kHz to 16kHz
+        if sr != 16000:
+            audio_chunk = librosa.resample(audio_chunk, orig_sr=sr, target_sr=16000)
+            
+        # Convert to torch tensor
+        audio_tensor = torch.from_numpy(audio_chunk)
+        
+        # Pad or trim to expected length
+        audio_tensor = pad_or_trim(audio_tensor, N_SAMPLES)
+        
+        # Convert to mel spectrogram
+        mel = log_mel_spectrogram(audio_tensor)
+        
+        # Move to the same device as model
+        mel = mel.to(self.model.device)
+        
+        # Add batch dimension if needed
+        if mel.ndim == 2:
+            mel = mel.unsqueeze(0)
+            
+        # Get encoder embeddings
+        _, embeddings = self.model.encoder(mel, include_embeddings=True)
+        
+        # Process embeddings similar to audio2feat
+        encoder_embeddings = embeddings
+        encoder_embeddings = encoder_embeddings.transpose(0,2,1,3)
+        encoder_embeddings = encoder_embeddings.squeeze(0)
+        
+        # Take first half of embeddings like in audio2feat
+        emb_end_idx = encoder_embeddings.shape[0] // 2
+        encoder_embeddings = encoder_embeddings[:emb_end_idx]
+        
+        return encoder_embeddings
 
 if __name__ == "__main__":
     audio_processor = Audio2Feature(model_path="../../models/whisper/whisper_tiny.pt")
