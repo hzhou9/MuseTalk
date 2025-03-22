@@ -19,3 +19,4 @@ ffmpeg-python
 gradio
 spaces
 moviepy==1.0.3
+huggingface-hub==0.25.2
