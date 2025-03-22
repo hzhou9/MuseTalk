@@ -14,9 +14,11 @@ from tqdm import tqdm
 
 # initialize the mmpose model
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-config_file = './musetalk/utils/dwpose/rtmpose-l_8xb32-270e_coco-ubody-wholebody-384x288.py'
-checkpoint_file = './models/dwpose/dw-ll_ucoco_384.pth'
+module_dir = os.path.dirname(os.path.abspath(__file__))
+config_file = os.path.join(module_dir, 'dwpose', 'rtmpose-l_8xb32-270e_coco-ubody-wholebody-384x288.py')
+checkpoint_file = os.path.join(os.path.dirname(os.path.dirname(module_dir)), 'models', 'dwpose', 'dw-ll_ucoco_384.pth')
 model = init_model(config_file, checkpoint_file, device=device)
+
 
 # initialize the face detection model
 device = "cuda" if torch.cuda.is_available() else "cpu"
