@@ -9,10 +9,13 @@ import librosa
 from .whisper.audio import N_SAMPLES, log_mel_spectrogram, pad_or_trim
 sys.path.append("..")
 
+module_dir = os.path.dirname(os.path.abspath(__file__))
+models_dir = os.path.dirname(os.path.dirname(module_dir))
+
 class Audio2Feature():
     def __init__(self, 
                  whisper_model_type="tiny",
-                 model_path="./models/whisper/tiny.pt"):
+                 model_path=os.path.join(models_dir, 'models', 'whisper', 'tiny.pt')):
         self.whisper_model_type = whisper_model_type
         self.model = load_model(model_path) #
 
@@ -174,7 +177,7 @@ class Audio2Feature():
         return encoder_embeddings
 
 if __name__ == "__main__":
-    audio_processor = Audio2Feature(model_path="../../models/whisper/whisper_tiny.pt")
+    audio_processor = Audio2Feature(model_path=os.path.join(models_dir, 'models', 'whisper', 'whisper_tiny.pt'))
     audio_path = "./test.mp3"
     array = audio_processor.audio2feat(audio_path)
     print(array.shape)
