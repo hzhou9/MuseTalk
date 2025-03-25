@@ -90,17 +90,28 @@ def get_image_blending(image, face, face_box, mask_array, crop_box):
     x, y, x1, y1 = face_box
     x_s, y_s, x_e, y_e = crop_box
     
+    # Clamp crop_box to body dimensions
+    body_height, body_width = body.shape[0], body.shape[1]
+    x_s = max(0, x_s)
+    y_s = max(0, y_s)
+    x_e = min(body_width, x_e)
+    y_e = min(body_height, y_e)
+    
+    # Ensure valid crop
+    if x_e <= x_s or y_e <= y_s:
+        print(f"Invalid crop after clamping: {x_s}:{x_e}, {y_s}:{y_e} vs {body.shape}")
+        return body  # Skip blending if crop is invalid
+    
     face_large = copy.deepcopy(body[y_s:y_e, x_s:x_e])
     
-    # Log everything
+    print(f"body shape: {body.shape}")
     print(f"face shape: {face.shape}")
     print(f"face_large shape: {face_large.shape}")
     print(f"face_box: {face_box}")
-    print(f"crop_box: {crop_box}")
+    print(f"crop_box (clamped): [{x_s}, {y_s}, {x_e}, {y_e}]")
     print(f"Expected face size: height={y1-y}, width={x1-x}")
     print(f"Slice indices: y={y-y_s}:{y1-y_s}, x={x-x_s}:{x1-x_s}")
     
-    # Validate coordinates
     expected_height = y1 - y
     expected_width = x1 - x
     if expected_width <= 0 or expected_height <= 0:
@@ -108,15 +119,15 @@ def get_image_blending(image, face, face_box, mask_array, crop_box):
     slice_height = y1 - y_s - (y - y_s)
     slice_width = x1 - x_s - (x - x_s)
     if slice_width <= 0 or slice_height <= 0:
-        raise ValueError(f"Invalid slice: height={slice_height}, width={slice_width}")
+        print(f"Invalid slice after clamping: height={slice_height}, width={slice_width}")
+        return body  # Skip if slice is invalid
     if x-x_s < 0 or x1-x_s > face_large.shape[1] or y-y_s < 0 or y1-y_s > face_large.shape[0]:
-        raise ValueError(f"Slice out of bounds: {x-x_s}:{x1-x_s}, {y-y_s}:{y1-y_s} vs {face_large.shape}")
+        print(f"Slice out of bounds after clamping: {x-x_s}:{x1-x_s}, {y-y_s}:{y1-y_s} vs {face_large.shape}")
+        return body  # Skip if still out of bounds
 
-    # Resize face if necessary
     if face.shape[0] != expected_height or face.shape[1] != expected_width:
         face = cv2.resize(face, (expected_width, expected_height), interpolation=cv2.INTER_AREA)
     
-    # Channel consistency
     if len(face.shape) == 2:
         face = cv2.cvtColor(face, cv2.COLOR_GRAY2BGR)
     elif face.shape[2] != face_large.shape[2]:
