@@ -89,17 +89,34 @@ def get_image_blending(image, face, face_box, mask_array, crop_box):
     body = image
     x, y, x1, y1 = face_box
     x_s, y_s, x_e, y_e = crop_box
+    
+    # Ensure face_large is a deep copy of the cropped region
     face_large = copy.deepcopy(body[y_s:y_e, x_s:x_e])
+    
+    # Check and adjust face dimensions if necessary
+    expected_height = y1 - y
+    expected_width = x1 - x
+    if face.shape[0] != expected_height or face.shape[1] != expected_width:
+        face = cv2.resize(face, (expected_width, expected_height), interpolation=cv2.INTER_AREA)
+    
+    # Ensure face has the same number of channels as face_large
+    if len(face.shape) == 2:  # Grayscale face
+        face = cv2.cvtColor(face, cv2.COLOR_GRAY2BGR)
+    elif face.shape[2] != face_large.shape[2]:  # Channel mismatch
+        face = cv2.cvtColor(face, cv2.COLOR_RGB2BGR if face_large.shape[2] == 3 else cv2.COLOR_BGR2RGB)
+
+    # Assign face to the correct region
     face_large[y-y_s:y1-y_s, x-x_s:x1-x_s] = face
 
-    # Check if mask_array is already grayscale
-    if len(mask_array.shape) == 2 or mask_array.shape[-1] == 1:  # Grayscale (2D or 1-channel 3D)
+    # Handle mask_array
+    if len(mask_array.shape) == 2 or mask_array.shape[-1] == 1:  # Grayscale
         mask_image = mask_array
-    else:  # BGR (3-channel)
+    else:  # BGR
         mask_image = cv2.cvtColor(mask_array, cv2.COLOR_BGR2GRAY)
 
     mask_image = (mask_image / 255).astype(np.float32)
 
+    # Blend the images
     body[y_s:y_e, x_s:x_e] = cv2.blendLinear(face_large, body[y_s:y_e, x_s:x_e], mask_image, 1 - mask_image)
 
     return body
