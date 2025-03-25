@@ -103,13 +103,13 @@ def get_image_blending(image, face, face_box, mask_array, crop_box):
     
     face_large = copy.deepcopy(body[y_s:y_e, x_s:x_e])
     
-    print(f"body shape: {body.shape}")
-    print(f"face shape: {face.shape}")
-    print(f"face_large shape: {face_large.shape}")
-    print(f"face_box: {face_box}")
-    print(f"crop_box (clamped): [{x_s}, {y_s}, {x_e}, {y_e}]")
-    print(f"Expected face size: height={y1-y}, width={x1-x}")
-    print(f"Slice indices: y={y-y_s}:{y1-y_s}, x={x-x_s}:{x1-x_s}")
+    #print(f"body shape: {body.shape}")
+    #print(f"face shape: {face.shape}")
+    #print(f"face_large shape: {face_large.shape}")
+    #print(f"face_box: {face_box}")
+    #print(f"crop_box (clamped): [{x_s}, {y_s}, {x_e}, {y_e}]")
+    #print(f"Expected face size: height={y1-y}, width={x1-x}")
+    #print(f"Slice indices: y={y-y_s}:{y1-y_s}, x={x-x_s}:{x1-x_s}")
     
     expected_height = y1 - y
     expected_width = x1 - x
