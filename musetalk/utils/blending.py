@@ -90,33 +90,46 @@ def get_image_blending(image, face, face_box, mask_array, crop_box):
     x, y, x1, y1 = face_box
     x_s, y_s, x_e, y_e = crop_box
     
-    # Ensure face_large is a deep copy of the cropped region
     face_large = copy.deepcopy(body[y_s:y_e, x_s:x_e])
     
-    # Check and adjust face dimensions if necessary
+    # Log everything
+    print(f"face shape: {face.shape}")
+    print(f"face_large shape: {face_large.shape}")
+    print(f"face_box: {face_box}")
+    print(f"crop_box: {crop_box}")
+    print(f"Expected face size: height={y1-y}, width={x1-x}")
+    print(f"Slice indices: y={y-y_s}:{y1-y_s}, x={x-x_s}:{x1-x_s}")
+    
+    # Validate coordinates
     expected_height = y1 - y
     expected_width = x1 - x
+    if expected_width <= 0 or expected_height <= 0:
+        raise ValueError(f"Invalid face_box: width={expected_width}, height={expected_height}")
+    slice_height = y1 - y_s - (y - y_s)
+    slice_width = x1 - x_s - (x - x_s)
+    if slice_width <= 0 or slice_height <= 0:
+        raise ValueError(f"Invalid slice: height={slice_height}, width={slice_width}")
+    if x-x_s < 0 or x1-x_s > face_large.shape[1] or y-y_s < 0 or y1-y_s > face_large.shape[0]:
+        raise ValueError(f"Slice out of bounds: {x-x_s}:{x1-x_s}, {y-y_s}:{y1-y_s} vs {face_large.shape}")
+
+    # Resize face if necessary
     if face.shape[0] != expected_height or face.shape[1] != expected_width:
         face = cv2.resize(face, (expected_width, expected_height), interpolation=cv2.INTER_AREA)
     
-    # Ensure face has the same number of channels as face_large
-    if len(face.shape) == 2:  # Grayscale face
+    # Channel consistency
+    if len(face.shape) == 2:
         face = cv2.cvtColor(face, cv2.COLOR_GRAY2BGR)
-    elif face.shape[2] != face_large.shape[2]:  # Channel mismatch
+    elif face.shape[2] != face_large.shape[2]:
         face = cv2.cvtColor(face, cv2.COLOR_RGB2BGR if face_large.shape[2] == 3 else cv2.COLOR_BGR2RGB)
 
-    # Assign face to the correct region
     face_large[y-y_s:y1-y_s, x-x_s:x1-x_s] = face
 
-    # Handle mask_array
-    if len(mask_array.shape) == 2 or mask_array.shape[-1] == 1:  # Grayscale
+    if len(mask_array.shape) == 2 or mask_array.shape[-1] == 1:
         mask_image = mask_array
-    else:  # BGR
+    else:
         mask_image = cv2.cvtColor(mask_array, cv2.COLOR_BGR2GRAY)
 
     mask_image = (mask_image / 255).astype(np.float32)
-
-    # Blend the images
     body[y_s:y_e, x_s:x_e] = cv2.blendLinear(face_large, body[y_s:y_e, x_s:x_e], mask_image, 1 - mask_image)
 
     return body
