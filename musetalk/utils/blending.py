@@ -97,10 +97,9 @@ def get_image_blending(image, face, face_box, mask_array, crop_box):
     x_e = min(body_width, x_e)
     y_e = min(body_height, y_e)
     
-    # Ensure valid crop
     if x_e <= x_s or y_e <= y_s:
         print(f"Invalid crop after clamping: {x_s}:{x_e}, {y_s}:{y_e} vs {body.shape}")
-        return body  # Skip blending if crop is invalid
+        return body
     
     face_large = copy.deepcopy(body[y_s:y_e, x_s:x_e])
     
@@ -120,10 +119,10 @@ def get_image_blending(image, face, face_box, mask_array, crop_box):
     slice_width = x1 - x_s - (x - x_s)
     if slice_width <= 0 or slice_height <= 0:
         print(f"Invalid slice after clamping: height={slice_height}, width={slice_width}")
-        return body  # Skip if slice is invalid
+        return body
     if x-x_s < 0 or x1-x_s > face_large.shape[1] or y-y_s < 0 or y1-y_s > face_large.shape[0]:
         print(f"Slice out of bounds after clamping: {x-x_s}:{x1-x_s}, {y-y_s}:{y1-y_s} vs {face_large.shape}")
-        return body  # Skip if still out of bounds
+        return body
 
     if face.shape[0] != expected_height or face.shape[1] != expected_width:
         face = cv2.resize(face, (expected_width, expected_height), interpolation=cv2.INTER_AREA)
@@ -135,12 +134,27 @@ def get_image_blending(image, face, face_box, mask_array, crop_box):
 
     face_large[y-y_s:y1-y_s, x-x_s:x1-x_s] = face
 
+    # Handle mask_array
     if len(mask_array.shape) == 2 or mask_array.shape[-1] == 1:
         mask_image = mask_array
     else:
         mask_image = cv2.cvtColor(mask_array, cv2.COLOR_BGR2GRAY)
-
+    
+    # Resize mask_image to match face_large
+    if mask_image.shape != (face_large.shape[0], face_large.shape[1]):
+        mask_image = cv2.resize(mask_image, (face_large.shape[1], face_large.shape[0]), interpolation=cv2.INTER_AREA)
+    
     mask_image = (mask_image / 255).astype(np.float32)
-    body[y_s:y_e, x_s:x_e] = cv2.blendLinear(face_large, body[y_s:y_e, x_s:x_e], mask_image, 1 - mask_image)
+    weights2 = 1 - mask_image
+    
+    # Verify sizes before blending
+    if (face_large.shape[:2] != body[y_s:y_e, x_s:x_e].shape[:2] or
+        face_large.shape[:2] != mask_image.shape or
+        face_large.shape[:2] != weights2.shape):
+        print(f"Size mismatch: face_large={face_large.shape}, body_slice={body[y_s:y_e, x_s:x_e].shape}, "
+              f"mask_image={mask_image.shape}, weights2={weights2.shape}")
+        return body
+
+    body[y_s:y_e, x_s:x_e] = cv2.blendLinear(face_large, body[y_s:y_e, x_s:x_e], mask_image, weights2)
 
     return body
